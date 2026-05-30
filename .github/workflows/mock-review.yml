@@ -1,0 +1,67 @@
+name: Mock AI Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, review_requested]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: >-
+      github.event.action == 'opened' ||
+      github.event.action == 'ready_for_review' ||
+      (github.event.action == 'review_requested' &&
+       github.event.requested_team != null &&
+       github.event.requested_team.slug == 'ai-review-bot')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add ai-review-bot as reviewer (idempotent)
+        if: github.event.action == 'opened' || github.event.action == 'ready_for_review'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # POST to requested_reviewers is idempotent: if team is already
+          # requested, GitHub returns 200 without re-firing review_requested.
+          gh api -X POST \
+            "repos/${{ github.repository }}/pulls/${PR_NUMBER}/requested_reviewers" \
+            -F "team_reviewers[]=ai-review-bot" \
+            || echo "Add team reviewer failed (already requested or transient error); continuing."
+
+      - name: Post hardcoded mock review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TRIGGER_ACTION: ${{ github.event.action }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REQUESTED_TEAM="${{ github.event.requested_team.slug }}"
+
+          # Build review body — different content per trigger so Aaron
+          # can visually distinguish runs.
+          BODY=$(cat <<EOF
+          **Mock AI Review — fired**
+
+          - Trigger action: \`${TRIGGER_ACTION}\`
+          - Workflow run: [#${RUN_ID}](https://github.com/${{ github.repository }}/actions/runs/${RUN_ID})
+          - Head SHA: \`${HEAD_SHA}\`
+          - Fired at: \`${TIMESTAMP}\` UTC
+          - Requested team (if review_requested): \`${REQUESTED_TEAM:-<n/a>}\`
+
+          This is a HARDCODED review comment. No LLM was called.
+          To re-trigger, click "Re-request review" next to \`ai-review-bot\` in the Reviewers sidebar.
+          EOF
+          )
+
+          # Use the reviews API to post as a top-level PR review (event=COMMENT,
+          # so it neither approves nor blocks).
+          jq -nc --arg body "$BODY" --arg sha "$HEAD_SHA" \
+            '{event: "COMMENT", body: $body, commit_id: $sha}' \
+            | gh api -X POST \
+                "repos/${{ github.repository }}/pulls/${PR_NUMBER}/reviews" \
+                --input -
