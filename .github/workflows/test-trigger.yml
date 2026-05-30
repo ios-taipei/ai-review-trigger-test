@@ -1,0 +1,38 @@
+name: Test Trigger
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, review_requested]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  echo:
+    if: >-
+      github.event.action == 'opened' ||
+      github.event.action == 'ready_for_review' ||
+      (github.event.action == 'review_requested' &&
+       github.event.requested_team != null &&
+       github.event.requested_team.slug == 'ai-review-bot')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo trigger context
+        run: |
+          echo "=== Event ==="
+          echo "event.action=${{ github.event.action }}"
+          echo "event_name=${{ github.event_name }}"
+          echo ""
+          echo "=== PR ==="
+          echo "PR number=${{ github.event.pull_request.number }}"
+          echo "PR head SHA=${{ github.event.pull_request.head.sha }}"
+          echo "PR draft=${{ github.event.pull_request.draft }}"
+          echo "PR title=${{ github.event.pull_request.title }}"
+          echo ""
+          echo "=== Requested team (only present on review_requested) ==="
+          echo "team name=${{ github.event.requested_team.name }}"
+          echo "team slug=${{ github.event.requested_team.slug }}"
+          echo ""
+          echo "=== Requested reviewer (only present on review_requested for users) ==="
+          echo "reviewer login=${{ github.event.requested_reviewer.login }}"
