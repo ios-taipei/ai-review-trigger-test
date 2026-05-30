@@ -14,8 +14,10 @@ jobs:
       github.event.action == 'opened' ||
       github.event.action == 'ready_for_review' ||
       (github.event.action == 'review_requested' &&
-       github.event.requested_team != null &&
-       github.event.requested_team.slug == 'ai-review-bot')
+       ((github.event.requested_team != null &&
+         github.event.requested_team.slug == 'ai-review-bot') ||
+        (github.event.requested_reviewer != null &&
+         github.event.requested_reviewer.login == 'DummyAaron')))
     runs-on: ubuntu-latest
     steps:
       - name: Add ai-review-bot as reviewer (idempotent)
@@ -55,7 +57,7 @@ jobs:
 
           This is a HARDCODED review comment. No LLM was called.
           Submitted by service account \`DummyAaron\` (member of ai-review-bot team).
-          To re-trigger, click "Re-request review" next to \`ai-review-bot\` in the Reviewers sidebar.
+          To re-trigger, click "Re-request review" next to \`DummyAaron\` in the Reviewers sidebar.
           EOF
           )
 
