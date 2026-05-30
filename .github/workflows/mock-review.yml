@@ -21,7 +21,7 @@ jobs:
       - name: Add ai-review-bot as reviewer (idempotent)
         if: github.event.action == 'opened' || github.event.action == 'ready_for_review'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AI_REVIEW_SVC_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # POST to requested_reviewers is idempotent: if team is already
@@ -33,7 +33,7 @@ jobs:
 
       - name: Post hardcoded mock review
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AI_REVIEW_SVC_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           TRIGGER_ACTION: ${{ github.event.action }}
@@ -54,6 +54,7 @@ jobs:
           - Requested team (if review_requested): \`${REQUESTED_TEAM:-<n/a>}\`
 
           This is a HARDCODED review comment. No LLM was called.
+          Submitted by service account \`DummyAaron\` (member of ai-review-bot team).
           To re-trigger, click "Re-request review" next to \`ai-review-bot\` in the Reviewers sidebar.
           EOF
           )
